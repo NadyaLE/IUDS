@@ -2,19 +2,16 @@ package com.digdes.school;
 
 import java.util.*;
 
+import static java.lang.System.out;
+
 public class JavaSchoolStarter{
     private final List<Map<String, Object>> collection = new ArrayList<>();
-    public Map<String,Class> fieldsAndTypes;
+    private final Map<String,Class> fieldsAndTypes;
     private String regex = "'[a-zA-z]+' *= *[a-zA-Z\\d]+"; // 'active' = false
-    public static String insert = "['‘][A-z]*['’]\\s*=\\s*(?:['‘][.\\W\\dА-я]*['’]|(true|false)|\\d+(\\.\\d+)?)\\s*\\,?"; // 'active' = false
 
     public JavaSchoolStarter() {
-        fieldsAndTypes = new HashMap<>();
-        fieldsAndTypes.put("id", Long.class);
-        fieldsAndTypes.put("lastName", String.class);
-        fieldsAndTypes.put("age", Long.class);
-        fieldsAndTypes.put("cost", Double.class);
-        fieldsAndTypes.put("active", Boolean.class);
+        fieldsAndTypes = Map.of("id", Long.class,"lastName", String.class,
+                "age", Long.class,"cost", Double.class,"active", Boolean.class);
     }
 
     public JavaSchoolStarter(Map<String,Class> fieldsAndTypes) {
@@ -41,6 +38,13 @@ public class JavaSchoolStarter{
 
     public void addMap(){
         Map<String,Object> map = setKeysInMap(fieldsAndTypes.keySet(), new HashMap<>());
+        try{
+            Class o = fieldsAndTypes.get("cost");
+            Object obj = o.getConstructor(String.class).newInstance("15");
+            out.println(obj.getClass().getName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         collection.add(map);
         map.put("cost", 45);
@@ -52,18 +56,18 @@ public class JavaSchoolStarter{
         collection.add(setKeysInMap(fieldsAndTypes.keySet(),new HashMap<>()));
         collection.get(1).put("cost", 100);
         if(collection.get(1).values().stream().anyMatch(Objects::nonNull)){
-            System.out.println("Has nonNull!");
+            out.println("Has nonNull!");
         }
     }
 
     public void printTable() {
         for (String key : fieldsAndTypes.keySet()) {
-            System.out.printf("%-15s", key);
-        }System.out.println();
+            out.printf("%-15s", key);
+        }out.println();
         for (Map<String, Object> map : collection) {
             for (Object value : map.values()) {
-                System.out.printf("%-15s", value);
-            }System.out.println();
+                out.printf("%-15s", value);
+            }out.println();
         }
     }
 
