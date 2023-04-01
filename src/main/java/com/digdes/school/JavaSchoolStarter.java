@@ -58,6 +58,7 @@ public class JavaSchoolStarter{
         if(collection.get(1).values().stream().anyMatch(Objects::nonNull)){
             out.println("Has nonNull!");
         }
+
     }
 
     public void printTable() {
