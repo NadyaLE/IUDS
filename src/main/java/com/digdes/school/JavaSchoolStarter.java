@@ -1,20 +1,22 @@
 package com.digdes.school;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.digdes.school.ValidatorIUDS.*;
 import static java.lang.System.out;
 
-public class JavaSchoolStarter{
+public class JavaSchoolStarter {
     private final List<Map<String, Object>> collection = new ArrayList<>();
-    private final Map<String,Class> fieldsAndTypes;
-    private String regex = "'[a-zA-z]+' *= *[a-zA-Z\\d]+"; // 'active' = false
+    private final Map<String, Class> fieldsAndTypes;
 
     public JavaSchoolStarter() {
-        fieldsAndTypes = Map.of("id", Long.class,"lastName", String.class,
-                "age", Long.class,"cost", Double.class,"active", Boolean.class);
+        fieldsAndTypes = Map.of("id", Long.class, "lastName", String.class,
+                "age", Long.class, "cost", Double.class, "active", Boolean.class);
     }
 
-    public JavaSchoolStarter(Map<String,Class> fieldsAndTypes) {
+    public JavaSchoolStarter(Map<String, Class> fieldsAndTypes) {
         this.fieldsAndTypes = fieldsAndTypes;
     }
 
@@ -25,7 +27,11 @@ public class JavaSchoolStarter{
 
     public static void main(String[] args) {
         JavaSchoolStarter cl = new JavaSchoolStarter();
-        cl.addMap();
+        try {
+            cl.addMap("INSErT  VALUES 'LASTName' = 'null', 'iD'=null, 'aGe' = null ");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         cl.printTable();
     }
 
@@ -36,42 +42,61 @@ public class JavaSchoolStarter{
         return map;
     }
 
-    public void addMap(){
-        Map<String,Object> map = setKeysInMap(fieldsAndTypes.keySet(), new HashMap<>());
-        try{
-            Class o = fieldsAndTypes.get("cost");
-            Object obj = o.getConstructor(String.class).newInstance("15");
-            out.println(obj.getClass().getName());
+    public Map<String, Object> addMap(String iudsCommand) throws Exception {
+        Map<String, Object> map = setKeysInMap(fieldsAndTypes.keySet(), new HashMap<>());
+        Pattern pattern = Pattern.compile(iudsRules);
+        Matcher matcher = pattern.matcher(iudsCommand);
+        if (matcher.find()) {
+            String command = matcher.group().replaceAll("(?i)where", "")
+                    .toUpperCase().trim().replaceAll("\\s{2,}", " ");
+            switch (command) {
+                case "INSERT VALUES" -> fillMap(getDataINSERT(iudsCommand), map);
+                case "UPDATE VALUES", "SELECT", "DELETE" -> getDataAndConditionUDS(iudsCommand);
+                default -> throw new IllegalStateException("Unexpected value: " + command);
+            }
+        }else{
+            throw new IllegalArgumentException("Command not found!");
+        }
+        map.forEach((k,v) -> out.println(k + " - " + (v==null? "": v + "   " + v.getClass().getSimpleName())));
+
+        return null;
+    }
+
+    public List<Map<String, Object>> fillMap(Map<String, String> stringMap, Map<String, Object> map) {
+        try {
+            for (String field : stringMap.keySet()) {
+                String correctName = map.keySet().stream().filter(e -> e.compareToIgnoreCase(field) == 0).findAny()
+                        .orElseThrow(() -> new Exception("Invalid field found in request!"));
+                Class o = fieldsAndTypes.get(correctName);
+                String smth = stringMap.get(field);
+                Object obj = null;
+                if (!smth.equals("null")) {
+                    obj = o.getConstructor(String.class).newInstance(smth.replaceAll("['‘’]", ""));
+                }
+                map.put(correctName,obj);
+            }
+            if (map.values().stream().anyMatch(Objects::nonNull)) {
+                out.println("Has nonNull!");
+                collection.add(map);
+                return collection;
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        collection.add(map);
-        map.put("cost", 45);
-        map.put("active", true);
-        collection.get(0).put("id", 15);
-        collection.get(0).put("lastName", "Suho");
-        collection.get(0).put("age", 23);
-        this.printTable();
-        collection.add(setKeysInMap(fieldsAndTypes.keySet(),new HashMap<>()));
-        collection.get(1).put("cost", 100);
-        if(collection.get(1).values().stream().anyMatch(Objects::nonNull)){
-            out.println("Has nonNull!");
-        }
-
+        return null;
     }
 
     public void printTable() {
         for (String key : fieldsAndTypes.keySet()) {
             out.printf("%-15s", key);
-        }out.println();
+        }
+        out.println();
         for (Map<String, Object> map : collection) {
             for (Object value : map.values()) {
                 out.printf("%-15s", value);
-            }out.println();
+            }
+            out.println();
         }
     }
-
-
 }
 
