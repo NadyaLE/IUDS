@@ -9,23 +9,31 @@ import java.util.stream.Collectors;
 
 public class ValidatorIUDS {
     public static final String iudsRules = "(?i)(insert|update)\\s+values\\s+|(select|delete)\\s+(where)?";
-    public static final String or_and = "\\s*(?i)(or|and)(?i)\\s*";
-    public static final String best = "['‘][A-я\\d\\s]*['’](\\s*([<>!]?=|[<>])\\s*\\d+(\\.\\d+)?|(?i)(\\s+(like|ilike)\\s+|\\s*!?=\\s*)(?i)(['‘][A-я\\d\\s%]*['’])|(?!<=|>=)!?=(true|false)|\\s*!?=\\s*null)";
-    private static final String validExpr = "['‘][A-я\\d\\s]*['’]\\s*(([<>!]?=|[<>])\\s*|\\s+(?i)(like|ilike)(?i)\\s+)(['‘][A-я\\d\\s%]*['’]|true|false|null|\\d+(\\.\\d+)?)";
-    private static final String validExprEnd = "(?i)(\\s*,|\\s+(and|or)\\s+|\\s+where\\s+|$)(?i)";
+    public static final String rules = "\\s*(\\(\\s*\\))?\\s*(?i)(or|and)(?i)\\s*(\\(\\s*\\))?";
+    public static final String or_and = "(?i)(or|and)(?i)";
+    public static final String best = "['‘][A-я\\d\\s]*['’](\\s*([<>!]?=|[<>])\\s*\\d+(\\.\\d+)?|(?i)(\\s*(like|ilike)\\s*|\\s*!?=\\s*)(?i)(['‘][A-я\\d\\s%]*['’])|\\s*(?!<=|>=)!?=\\s*(true|false)|\\s*!?=\\s*null)";
 
     public static String checkValidity(String iudsCommand) throws Exception {
-        if (iudsCommand.trim().endsWith(",")) {
-            throw new Exception("The comma must be followed by an expression!");
-        }
         if (iudsCommand.matches("(?i)\\s*insert\\s+values\\s*")
                 || iudsCommand.matches("(?i)\\s*update\\s+values\\s*")) {
             throw new Exception("Empty INSERT|UPDATE command!");
         }
-        String br = iudsCommand.replaceAll(best,"");
-
         iudsCommand = iudsCommand.replaceFirst(iudsRules, "").trim();
-        String check = iudsCommand.replaceAll(validExpr + validExprEnd, "");
+        String check1 = iudsCommand.replaceAll(best + "(\\s*,\\s*" + best + ")*(\\s*$|(?i)\\s*where\\s*(?i))", "");
+        String check = check1.replaceAll(best + "(\\s+" + or_and + "\\s*" + best + ")?", "");
+        Pattern pattern = Pattern.compile(best + "(\\s+" + or_and + "\\s*" + best + ")?");
+        Matcher matcher = pattern.matcher(check);
+        while (matcher.find()) {
+            System.out.println(matcher.group());
+        }
+        pattern = Pattern.compile("(?<=\\()" + rules + "(?=\\s*\\))");
+        matcher = pattern.matcher(check);
+        while (matcher.find()) {
+            System.out.println(check + " - " + matcher.group());
+            check = check.replaceAll("(?<=\\()" + rules + "(?=\\s*\\))", "");
+            matcher = pattern.matcher(check);
+        }
+        check = check.replaceFirst(rules, " ");
         if (!check.isBlank()) {
             throw new Exception("Syntax error: " + check);
         }
@@ -81,18 +89,19 @@ public class ValidatorIUDS {
 
     public static void main(String[] args) {
         try {
+            getData("UPDATE VALUES ‘active’  =  false, ‘cost’  =    10.1, 'age' = 23 where (‘id’='' or (('age'=null) and 'cost' < 4)) and (‘active’=false or 'lastName' like 'test%' and ('cost' > 6) )");
             getData("    INSErT    VALUEs 'last Name' = 'Fedorov as %', 'id'=3, 'age' = null, 'active'= false  ");
             getData("select 'age'>=null and 'lastName' ilike '%п%' or 'cost' < 10");
             getData("UPDATE VALUES 'active'=true wHerE 'active'=false");
             getData("Select ");
-            //      ValidatorIUDS.getDataINSERT ("INSErT    VALUEs ");
-            // insertValues("UPDATE VALUES ‘active’=true where ‘active’=false");
-            // insertValues("select ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
-            //     getData("INSErT  VALUEs 'last Name' = 'Fedorov_and','id'=3.4,'age' = 40  , 'active'= false");
+            ValidatorIUDS.getDataINSERT("INSErT    VALUEs ");
+            //    insertValues("UPDATE VALUES ‘active’=true where ‘active’=false");
+            //    insertValues("select ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
+            getData("INSErT  VALUEs 'last Name' = 'Fedorov_and','id'=3.4,'age' = 40  , 'active'= false");
             getData("UPDATE VALUES ‘active’=false, ‘cost’=10.1 where ‘id’=3 and 'age' >= 18");
             getData("UPDATE VALUES ‘active’=true");
             getData("select where ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
-      //      getData("UPDATE VALUES ‘active’=false, ‘cost’=10.1 where (‘id’<='' or 'age'>=20) and(‘active’=false or 'lastName' = 'test')");
+            getData("UPDATE VALUES ‘active’=false, ‘cost’=10.1 where (‘id’<='' or 'age'>=20) and(‘active’=false or 'lastName' = 'test')");
         } catch (Exception e) {
             e.printStackTrace();
         }
