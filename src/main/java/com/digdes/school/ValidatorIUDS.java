@@ -8,34 +8,72 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class ValidatorIUDS {
-    public static final String iudsRules = "(?i)(insert|update)\\s+values\\s+|(select|delete)\\s+(where)?";
-    public static final String rules = "\\s*(\\(\\s*\\))?\\s*(?i)(or|and)(?i)\\s*(\\(\\s*\\))?";
-    public static final String or_and = "(?i)(or|and)(?i)";
-    public static final String best = "['‘][A-я\\d\\s]*['’](\\s*([<>!]?=|[<>])\\s*\\d+(\\.\\d+)?|(?i)(\\s*(like|ilike)\\s*|\\s*!?=\\s*)(?i)(['‘][A-я\\d\\s%]*['’])|\\s*(?!<=|>=)!?=\\s*(true|false)|\\s*!?=\\s*null)";
+    public static final String iudsRules = "(?i)(insert|update)\\s+values\\s+|(select|delete)\\s*(\\s+where)?";
+    public static final String or_and = "\\s*(?i)(or|and)(?i)\\s*";
+    public static final String rightEndData = "(\\s*,|\\s*$|\\s+where)";
+    public static final String exprValidity = "['‘][A-я\\d\\s]*['’](\\s*(([<>!]?=|[<>])\\s*\\d+(\\.\\d+)?|!?=\\s*(true|false|null))(?=($|\\)|,|\\s))|\\s*((?i)(like|ilike|!?=)(?i)\\s*(['‘][A-я\\d\\s%]*['’])))";
+    public static final String dataEnumeration = exprValidity + "(\\s*,\\s*" + exprValidity + ")*(\\s*$)";
+    public static final String expression = "(" + exprValidity + "|\\(\\s*\\))" + or_and + "(" + exprValidity + "|\\(\\s*\\)" + ")";
 
-    public static String checkValidity(String iudsCommand) throws Exception {
+    private static String checkValidity(String iudsCommand) throws Exception {
         if (iudsCommand.matches("(?i)\\s*insert\\s+values\\s*")
                 || iudsCommand.matches("(?i)\\s*update\\s+values\\s*")) {
             throw new Exception("Empty INSERT|UPDATE command!");
         }
+        if (Pattern.compile("\\(\\s*\\)").matcher(iudsCommand).find()) {
+            throw new Exception("Empty parentheses!");
+        }
         iudsCommand = iudsCommand.replaceFirst(iudsRules, "").trim();
-        String check1 = iudsCommand.replaceAll(best + "(\\s*,\\s*" + best + ")*(\\s*$|(?i)\\s*where\\s*(?i))", "");
-        String check = check1.replaceAll(best + "(\\s+" + or_and + "\\s*" + best + ")?", "");
-        Pattern pattern = Pattern.compile(best + "(\\s+" + or_and + "\\s*" + best + ")?");
-        Matcher matcher = pattern.matcher(check);
-        while (matcher.find()) {
-            System.out.println(matcher.group());
+        String[] splitWhere = iudsCommand.split("(?i)\\s*where\\s*(?i)(?!\\s*$)");
+        String checkData = null, checkExpr = null;
+        if (splitWhere.length == 2) {
+            checkData = splitWhere[0].replaceAll(dataEnumeration, "")
+                    .replaceAll(exprValidity + "(\\s*,\\s*)", "");
+            checkExpr = splitWhere[1];
+        } else {
+            if (iudsCommand.replaceAll(dataEnumeration, "").isBlank() ||
+                    iudsCommand.replaceAll(expression, "").isBlank()) {
+                return iudsCommand;
+            }
+            if (Pattern.compile("([<>!]=|[<>]|(?i)(like|ilike)(?i))|" + or_and)
+                    .matcher(iudsCommand.replaceAll("['‘][A-я\\d\\s%]*['’]", "")).find()) {
+                checkExpr = iudsCommand;
+            } else {
+                if (iudsCommand.endsWith(",")) throw new Exception("The comma must be followed by expression!");
+                checkData = iudsCommand.replaceAll(dataEnumeration, "")
+                        .replaceAll(exprValidity + "(\\s*,\\s*)", "");
+            }
         }
-        pattern = Pattern.compile("(?<=\\()" + rules + "(?=\\s*\\))");
-        matcher = pattern.matcher(check);
-        while (matcher.find()) {
-            System.out.println(check + " - " + matcher.group());
-            check = check.replaceAll("(?<=\\()" + rules + "(?=\\s*\\))", "");
-            matcher = pattern.matcher(check);
+        if (checkExpr != null) if (checkExpr.replaceAll(exprValidity, "").isBlank()) return iudsCommand;
+        if (checkExpr == null) {
+            if (checkData.isBlank()) return iudsCommand;
+            throw new Exception("Syntax error: " + checkData +
+                    "\nA comma may not have been placed after the expression, " +
+                    "\nor the wrong operator may have been used");
         }
-        check = check.replaceFirst(rules, " ");
-        if (!check.isBlank()) {
-            throw new Exception("Syntax error: " + check);
+
+        Pattern pattern = Pattern.compile("(?<=\\()\\s*" + expression + "(?=\\s*\\))");
+        Matcher matcher = pattern.matcher(checkExpr);
+        while (matcher.find()) {
+            System.out.println(checkExpr + " - " + matcher.group());
+            checkExpr = checkExpr.replace(matcher.group(), "");
+            matcher.reset(checkExpr);
+        }
+        checkExpr = checkExpr.replaceAll(expression, " ");
+        //   checkExpr = checkExpr.replaceAll(dataEnumeration, " ");
+
+        if (checkData == null) {
+            if (checkExpr.isBlank()) return iudsCommand;
+            throw new Exception("Syntax error: " + checkExpr +
+                    "\nMaybe you forgot the parentheses that allow multiple or/and operations");
+        }
+
+        if (!checkData.isBlank() || !checkExpr.isBlank()) {
+            throw new Exception("\nSyntax error!" +
+                    "\nData check status - " + (checkData.isBlank() ? "Passed!" : "Failed! " +
+                    (checkData.replaceAll(exprValidity, "").isBlank() ? "Missing comma after: " + checkData :
+                            "There are unresolved expressions: " + checkData)) +
+                    "\nConditions check status - " + (checkExpr.isBlank() ? "Passed!" : "Failed!\nCause: " + checkExpr));
         }
         return iudsCommand;
     }
@@ -60,7 +98,6 @@ public class ValidatorIUDS {
     public static Map<Object, String> getDataAndConditionUDS(String udsCommand) throws Exception {
         udsCommand = checkValidity(udsCommand);
         String[] string = udsCommand.split("(?i)\\s+where\\s+");
-//        Arrays.stream(string).forEach(System.out::println);
         Map<Object, String> mapData = new HashMap<>();
         Map<String, String> updateVal = null;
         if (string.length == 2) {
@@ -89,19 +126,19 @@ public class ValidatorIUDS {
 
     public static void main(String[] args) {
         try {
-            getData("UPDATE VALUES ‘active’  =  false, ‘cost’  =    10.1, 'age' = 23 where (‘id’='' or (('age'=null) and 'cost' < 4)) and (‘active’=false or 'lastName' like 'test%' and ('cost' > 6) )");
+            getData("UPDATE VALUES 'age' = 23 where (‘id’=''or('age'=null and'cost' < 4))and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
             getData("    INSErT    VALUEs 'last Name' = 'Fedorov as %', 'id'=3, 'age' = null, 'active'= false  ");
-            getData("select 'age'>=null and 'lastName' ilike '%п%' or 'cost' < 10");
+            //   getData("select 'age'!=null and 'lastName' ilike '%п%' or 'cost' < 10");
             getData("UPDATE VALUES 'active'=true wHerE 'active'=false");
-            getData("Select ");
-            ValidatorIUDS.getDataINSERT("INSErT    VALUEs ");
+            getData("Select");
+            //   ValidatorIUDS.getDataINSERT("INSErT    VALUEs ");
             //    insertValues("UPDATE VALUES ‘active’=true where ‘active’=false");
             //    insertValues("select ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
             getData("INSErT  VALUEs 'last Name' = 'Fedorov_and','id'=3.4,'age' = 40  , 'active'= false");
             getData("UPDATE VALUES ‘active’=false, ‘cost’=10.1 where ‘id’=3 and 'age' >= 18");
             getData("UPDATE VALUES ‘active’=true");
             getData("select where ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
-            getData("UPDATE VALUES ‘active’=false, ‘cost’=10.1 where (‘id’<='' or 'age'>=20) and(‘active’=false or 'lastName' = 'test')");
+            getData("UPDATE VALUES ‘active’=false, ‘cost’=10 where (‘id’='' or 'age'>=20) and(‘active’=false or 'lastName' = 'test')");
         } catch (Exception e) {
             e.printStackTrace();
         }
