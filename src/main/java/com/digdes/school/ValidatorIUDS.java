@@ -14,7 +14,7 @@ public class ValidatorIUDS {
     public static final String dataValidity = "['‘][A-я\\d\\s]*['’]\\s*=\\s*((\\d+(\\.\\d+)?|(true|false|null))(?=($|,|\\s))|['‘][A-я\\d\\s]*['’])";
     public static final String dataEnumeration = dataValidity + "(\\s*,\\s*" + dataValidity + ")*(\\s*$)";
     public static final String expression = "(" + exprValidity + "|\\(\\s*\\))" + or_and + "(" + exprValidity + "|\\(\\s*\\)" + ")";
-    private static final String exprMessage = "\nMaybe you forgot the parentheses that allow multiple (or|and) operations, or the wrong operator may have been used";
+    private static final String exprMessage = "\nYou may have forgotten or added too many parentheses that allow multiple operations (or|and), or the wrong operator may have been used.";
     private static final String dataMessage = "\nPerhaps a comma was not placed after the expression, or the wrong operator may have been used";
     private static final String missCommaMessage = "The comma must be followed by expression!";
 
@@ -48,8 +48,7 @@ public class ValidatorIUDS {
             throw new Exception("Syntax error: " + checkData + dataMessage);
         }
 
-        Pattern pattern = Pattern.compile("(?<=\\()\\s*" + expression + "(?=\\s*\\))");
-        Matcher matcher = pattern.matcher(checkExpr);
+        Matcher matcher = Pattern.compile("(?<=\\()\\s*" + expression + "(?=\\s*\\))").matcher(checkExpr);
         while (matcher.find()) {
             System.out.println(checkExpr + " - " + matcher.group());
             checkExpr = checkExpr.replace(matcher.group(), "");
@@ -104,8 +103,7 @@ public class ValidatorIUDS {
 
     public static Map<?, ?> getData(String iudsCommand) throws Exception {
         Map<?, ?> result;
-        Pattern pattern = Pattern.compile(iudsRules);
-        Matcher matcher = pattern.matcher(iudsCommand);
+        Matcher matcher = Pattern.compile(iudsRules).matcher(iudsCommand);
         if (matcher.find()) {
             String command = matcher.group().replaceAll("(?i)where", "")
                     .toUpperCase().strip().replaceAll("\\s{2,}", " ");
@@ -122,9 +120,9 @@ public class ValidatorIUDS {
 
     public static void main(String[] args) {
         try {
-            getData("UPDATE VALUES 'age' = 23, 'cost'='','active'=12 where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
+               getData("UPDATE VALUES 'age' = 23, 'cost'='','active'=12 where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
             getData("    INSErT    VALUEs 'last Name' = 'Fedorov as', 'id'=3, 'age' = null, 'active'= false  ");
-            getData("select where 'age'=null and 'lastName' ilike 'рк % sr'");
+            getData("select where   'age'=null and 'lastName' ilike 'рк % sr'");
             getData("UPDATE VALUES 'active'=true ");
             //    getData("Select where");
             //    getData("Delete where");
