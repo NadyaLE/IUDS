@@ -3,7 +3,6 @@ package com.digdes.school;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static com.digdes.school.ValidatorIUDS.*;
 import static java.lang.System.out;
@@ -32,9 +31,9 @@ public class JavaSchoolStarter {
             String command = matcher.group().replaceAll("(?i)where", "")
                     .toUpperCase().strip().replaceAll("\\s{2,}", " ");
             return switch (command) {
-                case "INSERT VALUES" -> insertMap(getDataINSERT(request),
+                case "INSERT VALUES" -> insertMap(getData(checkValidity(request)[0]),
                         setKeysInMap(fieldsAndTypes.keySet(), new LinkedHashMap<>()));
-                case "UPDATE VALUES", "SELECT", "DELETE" -> selectByCondition(getDataAndConditionUDS(request));
+                case "UPDATE VALUES", "SELECT", "DELETE" -> selectByCondition(getDataAndCondition(request));
                 default -> throw new IllegalStateException("Unexpected value: " + command);
             };
         } else {
@@ -43,53 +42,95 @@ public class JavaSchoolStarter {
     }
 
     public List<Map<String, Object>> selectByCondition(Map<String, Map<String, String>> stringMap) {
-        List<Map<String, Object>> resultList = new ArrayList<>();
+        List<Map<String, Object>> resultList = new ArrayList<>(collection);
         if (stringMap.containsKey(null)) {
-            for (Map<String, String> data : stringMap.values()) {
-                resultList = collection.stream().filter(map -> map == fillMap(data, map)).collect(Collectors.toList());
-            }
+            stringMap.values().forEach(data -> resultList.forEach(map -> fillMap(data, map)));
             return resultList;
         }
         if (stringMap.containsValue(null)) {
-            return filterMap(String.join("", stringMap.keySet()));
+            return selectMap(String.join("", stringMap.keySet()));
         }
         return null;
     }
 
-    public List<Map<String, Object>> filterMap(String condition) {
-
+    public List<Map<String, Object>> selectMap(String condition) {
+        List<Map<String, Object>> result = new ArrayList<>(collection);
+        String[] parts = splitCondition(condition);
+        if (parts.length == 1) {
+           return result.stream().filter(e -> filterMap(e,parts[0])).toList();
+        }
+        else {
+//            Matcher matcher = Pattern.compile("(?<=\\()\\s*" + expression + "(?=\\s*\\))").matcher(parts[0]);
+//            while (matcher.find()) {
+//                System.out.println(checkExpr + " - " + matcher.group());
+//                checkExpr = checkExpr.replace(matcher.group(), "");
+//                matcher.reset(checkExpr);
+//            }
+        }
         return null;
+    }
+
+    public boolean filterMap(Map<String, Object> row, String condition) {
+        try {
+            Matcher matcher = Pattern.compile("\\s*([<>!]?=|[<>]|(?i)(like|ilike)(?i))\\s*").matcher(condition);
+            if (!matcher.find()) throw new Exception("Condition not found!");
+            String operation = matcher.group();
+            String[] fieldValue = condition.split(matcher.group());
+            String correctName = getCorrectField(fieldValue[0].replaceAll("['‘’]", ""), fieldsAndTypes);
+            Class cls = ((cls = fieldsAndTypes.get(correctName)) == Long.class) ? Double.class : cls;
+            if (cls == String.class && !fieldValue[1].matches("(['‘].*['’])"))
+                throw new Exception("The string must be enclosed in single quotes!");
+            Object obj = cls.getConstructor(String.class).newInstance(fieldValue[1].replaceAll("['‘’]", ""));
+            return Condition.getOperationByString(operation.strip()).compute(row.get(correctName), obj);
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        return false;
+    }
+
+    public static String getCorrectField(String field, Map<String, Class> fieldsAndTypes) throws Exception {
+        return fieldsAndTypes.keySet().stream()
+                .filter(e -> e.compareToIgnoreCase(field) == 0).findAny()
+                .orElseThrow(() -> new Exception("Invalid field found in request!"));
+    }
+
+    public static void main(String[] args) {
+        JavaSchoolStarter cl = new JavaSchoolStarter();
+        try {
+            List<Map<String, Object>> col = new ArrayList<>(cl.execute("INSErT  VALUES 'LASTName' ='lull', 'iD'=null, 'aGe' = null, 'coST' = 4.56 "));
+           col.addAll(cl.execute("INSErT  VALUES 'LasTName' = 'Lister', 'iD'=4, 'aGe' = 25, 'cost' = 4.55 "));
+//            printTable(
+//                    cl.execute("UPDate  VALUES 'LASTName' ='sos', 'aGe' = null "),
+//                    cl.fieldsAndTypes);
+      //      cl.execute("select where ‘id’=''");
+            //   cl.execute("select where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
+            //  cl.filterMap("((‘active’=false or'lastName'like'test%')and'cost'>6 )and''=''");
+      //      cl.filterMap(Map.of("iD", 4), "'iD' <=4");
+            printTable(cl.selectMap("'age' != 4.56"),cl.fieldsAndTypes);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    //    cl.printTable();
     }
 
     public String[] splitCondition(String condition) {
-        String[] parts;
-        parts = condition.strip().startsWith("(") ?
+        return condition.strip().startsWith("(") ?
                 condition.split("(?<=\\))\\s*(?i)(or|and)(?i)\\s*(?=\\(|[^()]+\\s*$)") :
                 condition.split("\\s*(?i)(or|and)(?i)\\s*", 2);
-        return parts;
-    }
-
-    public List<Map<String, Object>> insertMap(Map<String, String> dataString, Map<String, Object> map) {
-        map = fillMap(dataString, map);
-        if (map.values().stream().anyMatch(Objects::nonNull)) {
-            collection.add(map);
-        }
-        return List.of(map);
     }
 
     public Map<String, Object> fillMap(Map<String, String> dataString, Map<String, Object> map) {
         try {
             for (String field : dataString.keySet()) {
-                String correctName = map.keySet().stream().filter(e -> e.compareToIgnoreCase(field) == 0).findAny()
-                        .orElseThrow(() -> new Exception("Invalid field found in request!"));
-                Class o = fieldsAndTypes.get(correctName);
+                String correctName = getCorrectField(field, fieldsAndTypes);
+                Class cls = fieldsAndTypes.get(correctName);
                 String smth = dataString.get(field);
                 Object obj = null;
-                if (o == String.class && !smth.matches("(['‘].*['’]|null)")) {
-                    throw new Exception("The string must be enclosed in single quotes or null!");
+                if (cls == String.class && !smth.matches("(['‘].*['’]|null)")) {
+                    throw new Exception("The string must be enclosed in single quotes or to be null!");
                 }
                 if (!smth.equals("null")) {
-                    obj = o.getConstructor(String.class).newInstance(smth.replaceAll("['‘’]", ""));
+                    obj = cls.getConstructor(String.class).newInstance(smth.replaceAll("['‘’]", ""));
                 }
                 map.put(correctName, obj);
             }
@@ -100,15 +141,19 @@ public class JavaSchoolStarter {
         return null;
     }
 
-    public void printTable() {
-        printTable(collection, fieldsAndTypes);
+    public List<Map<String, Object>> insertMap(Map<String, String> dataString, Map<String, Object> map) {
+        if (fillMap(dataString, map).values().stream().allMatch(Objects::isNull)) return null;
+        collection.add(map);
+        return List.of(map);
     }
 
     public static <K, V> Map<K, V> setKeysInMap(Collection<K> keys, Map<K, V> map) {
-        for (K key : keys) {
-            map.put(key, null);
-        }
+        keys.forEach(key -> map.put(key, null));
         return map;
+    }
+
+    public void printTable() {
+        printTable(collection, fieldsAndTypes);
     }
 
     public static void printTable(List<Map<String, Object>> collection, Map<String, Class> fieldsAndTypes) {
@@ -121,22 +166,7 @@ public class JavaSchoolStarter {
             out.println();
         }
     }
-
-    public static void main(String[] args) {
-        JavaSchoolStarter cl = new JavaSchoolStarter();
-        try {
-            printTable(cl.execute("INSErT  VALUES 'LASTName' ='null', 'iD'=null, 'aGe' = null "), cl.fieldsAndTypes);
-            cl.execute("INSErT  VALUES 'LASTName' = 'Lister', 'iD'=4, 'aGe' = 25 ");
-            printTable(
-                    cl.execute("UPDate  VALUES 'LASTName' ='sos', 'iD'=null, 'aGe' = null "),
-                    cl.fieldsAndTypes);
-            cl.execute("select where ‘id’=''or 'age'=null");
-            cl.execute("select where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
-            cl.filterMap("((‘active’=false or'lastName'like'test%')and'cost'>6 )and''=''");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        cl.printTable();
-    }
 }
+
+
 

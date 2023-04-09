@@ -19,7 +19,7 @@ public class ValidatorIUDS {
     private static final String missCommaMessage = "The comma must be followed by expression!";
 
 
-    private static String[] checkValidity(String iudsCommand) throws Exception {
+    static String[] checkValidity(String iudsCommand) throws Exception {
         if (Pattern.compile("\\(\\s*\\)").matcher(iudsCommand).find()) throw new Exception("Empty parentheses!");
         String command;
         Matcher matcherCommand = Pattern.compile(iudsRules).matcher(iudsCommand);
@@ -74,16 +74,13 @@ public class ValidatorIUDS {
         return splitWhere;
     }
 
-    public static String clearDataString(String dataStr) throws Exception {
+    static String clearDataString(String dataStr) throws Exception {
         if (dataStr.endsWith(",")) throw new Exception(missCommaMessage);
         return dataStr.replaceAll(dataEnumeration, "")
                 .replaceAll(dataValidity + "(\\s*,\\s*)", "");
     }
 
-    public static Map<String, String> getDataINSERT(String insertCommand) throws Exception {
-        if (!Pattern.compile("(?i)insert\\s+values\\s*").matcher(insertCommand).find())
-            throw new Exception("Unresolved command!");
-        insertCommand = checkValidity(insertCommand)[0];
+    public static Map<String, String> getData(String insertCommand) {
         Map<String, String> mapData = new HashMap<>();
         for (String value : insertCommand.split("\\s*,\\s*")) {
             String[] strings = value.split("\\s*=\\s*");
@@ -92,24 +89,24 @@ public class ValidatorIUDS {
         return mapData;
     }
 
-    public static Map<String,Map<String, String>> getDataAndConditionUDS(String udsCommand) throws Exception {
+    public static Map<String,Map<String, String>> getDataAndCondition(String udsCommand) throws Exception {
         String[] string = checkValidity(udsCommand);
         Map<String, String> updateVal = null;
         if (string[0] != null) {
-            updateVal = getDataINSERT("insert values" + string[0]);
+            updateVal = getData(string[0]);
         }
         return Collections.singletonMap(string[1], updateVal);
     }
 
-    public static Map<?, ?> getData(String iudsCommand) throws Exception {
+    public static Map<?, ?> getDataIUDS(String iudsCommand) throws Exception {
         Map<?, ?> result;
         Matcher matcher = Pattern.compile(iudsRules).matcher(iudsCommand);
         if (matcher.find()) {
             String command = matcher.group().replaceAll("(?i)where", "")
                     .toUpperCase().strip().replaceAll("\\s{2,}", " ");
             result = switch (command) {
-                case "INSERT VALUES" -> getDataINSERT(iudsCommand);
-                case "UPDATE VALUES", "SELECT", "DELETE" -> getDataAndConditionUDS(iudsCommand);
+                case "INSERT VALUES" -> getData(checkValidity(iudsCommand)[0]);
+                case "UPDATE VALUES", "SELECT", "DELETE" -> getDataAndCondition(iudsCommand);
                 default -> throw new IllegalStateException("Unexpected value: " + command);
             };
         } else {
@@ -120,22 +117,22 @@ public class ValidatorIUDS {
 
     public static void main(String[] args) {
         try {
-               getData("UPDATE VALUES 'age' = 23, 'cost'='','active'=12 where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
-            getData("    INSErT    VALUEs 'last Name' = 'Fedorov as', 'id'=3, 'age' = null, 'active'= false  ");
-            getData("select where   'age'=null and 'lastName' ilike 'рк % sr'");
-            getData("UPDATE VALUES 'active'=true ");
+            getDataIUDS("UPDATE VALUES 'age' = 23, 'cost'='','active'=12 where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
+            getDataIUDS("    INSErT    VALUEs 'last Name' = 'Fedorov as', 'id'=3, 'age' = null, 'active'= false  ");
+            getDataIUDS("select where   'age'=null and 'lastName' ilike 'рк % sr'");
+            getDataIUDS("UPDATE VALUES 'active'=true ");
             //    getData("Select where");
             //    getData("Delete where");
             //    ValidatorIUDS.getData("INSErT    VALUEs ");
-            getDataINSERT("UPDATE VALUES ‘active’=true where ‘active’=false");
-            getDataINSERT("UPDATE VALUES ‘active’=true where ‘active’=false");
-            getDataINSERT("select ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
-            getData("select where ‘age’>=30 where ‘lastName’ ilike ‘%п%’");
-            getData("INSErT  VALUEs 'last Name' = 'Fedorov_and','id'=3.4,'age' = 40  , 'active'= false");
-            getData("UPDATE VALUES ‘active’=false, ‘cost’=10.1 where ‘id’=3 and 'age' >= 18");
-            getData("UPDATE VALUES ‘active’=true");
-            getData("select where ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
-            getData("UPDATE VALUES ‘active’=false, ‘cost’=10 where (‘id’='' or 'age'>=20) and(‘active’=false or 'lastName' = 'test')");
+            getData("UPDATE VALUES ‘active’=true where ‘active’=false");
+            getData("UPDATE VALUES ‘active’=true where ‘active’=false");
+            getData("select ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
+            getDataIUDS("select where ‘age’>=30 where ‘lastName’ ilike ‘%п%’");
+            getDataIUDS("INSErT  VALUEs 'last Name' = 'Fedorov_and','id'=3.4,'age' = 40  , 'active'= false");
+            getDataIUDS("UPDATE VALUES ‘active’=false, ‘cost’=10.1 where ‘id’=3 and 'age' >= 18");
+            getDataIUDS("UPDATE VALUES ‘active’=true");
+            getDataIUDS("select where ‘age’>=30 and ‘lastName’ ilike ‘%п%’");
+            getDataIUDS("UPDATE VALUES ‘active’=false, ‘cost’=10 where (‘id’='' or 'age'>=20) and(‘active’=false or 'lastName' = 'test')");
         } catch (Exception e) {
             e.printStackTrace();
         }
