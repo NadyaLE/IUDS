@@ -10,7 +10,7 @@ public class ValidatorIUDS {
     public static final String iudsRules = "((?i)(insert|update)\\s+values\\s*(?!\\s*$|\\s*where)|(select|delete)\\s*(\\s+where(?!\\s*$)|\\s*$))";
     public static final String or_and = "\\s*(?i)(or|and)(?i)\\s*";
     public static final String regex = "(%(?!['‘’]))?[A-я\\d\\s]*((?<!['‘’%])%)?";
-    public static final String exprValidity = "['‘][A-я\\d\\s]*['’]\\s*((([<>!]?=|[<>])\\s*\\d+(\\.\\d+)?|!?=\\s*(true|false|null))(?=($|\\)|,|\\s))|(?i)(like|ilike|!?=)(?i)\\s*['‘]" + regex + "(" + regex + ")*['’])";
+    public static final String exprValidity = "['‘][A-я\\d\\s]*['’]\\s*((([<>!]?=|[<>])\\s*\\d+(\\.\\d+)?|!?=\\s*(true|false))(?=($|\\)|,|\\s))|(?i)(like|ilike|!?=)(?i)\\s*['‘]" + regex + "(" + regex + ")*['’])";
     public static final String dataValidity = "['‘][A-я\\d\\s]*['’]\\s*=\\s*((\\d+(\\.\\d+)?|(true|false|null))(?=($|,|\\s))|['‘][A-я\\d\\s]*['’])";
     public static final String dataEnumeration = dataValidity + "(\\s*,\\s*" + dataValidity + ")*(\\s*$)";
     public static final String expression = "(" + exprValidity + "|\\(\\s*\\))" + or_and + "(" + exprValidity + "|\\(\\s*\\)" + ")";
@@ -117,7 +117,7 @@ public class ValidatorIUDS {
 
     public static void main(String[] args) {
         try {
-            getDataIUDS("UPDATE VALUES 'age' = 23, 'cost'='','active'=12 where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
+            getDataIUDS("UPDATE VALUES 'age' = 23, 'cost'=null,'active'=12 where ((‘id’=''or('age'=21 and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
             getDataIUDS("    INSErT    VALUEs 'last Name' = 'Fedorov as', 'id'=3, 'age' = null, 'active'= false  ");
             getDataIUDS("select where   'age'=null and 'lastName' ilike 'рк % sr'");
             getDataIUDS("UPDATE VALUES 'active'=true ");
