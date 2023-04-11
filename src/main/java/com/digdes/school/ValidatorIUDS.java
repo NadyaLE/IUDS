@@ -36,21 +36,15 @@ public class ValidatorIUDS {
             checkData = clearDataString(splitWhere[0]);
             checkExpr = splitWhere[1];
         } else {
-            if (command.matches("(?i)(insert|update)\\s+values\\s*")) {
-                checkData = clearDataString(iudsCommand);
-            } else {
-                checkExpr = iudsCommand;
-            }
+            if (command.matches("(?i)(insert|update)\\s+values\\s*")) checkData = clearDataString(iudsCommand);
+            else checkExpr = iudsCommand;
         }
-
         if (checkExpr == null) {
             if (checkData.isBlank()) return new String[]{splitWhere[0], checkExpr};
             throw new Exception("Syntax error: " + checkData + dataMessage);
         }
-
         Matcher matcher = Pattern.compile("(?<=\\()\\s*" + expression + "(?=\\s*\\))").matcher(checkExpr);
         while (matcher.find()) {
-            System.out.println(checkExpr + " - " + matcher.group());
             checkExpr = checkExpr.replace(matcher.group(), "");
             matcher.reset(checkExpr);
         }

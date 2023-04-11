@@ -6,7 +6,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.digdes.school.ValidatorIUDS.*;
-import static java.lang.System.arraycopy;
 import static java.lang.System.out;
 
 public class JavaSchoolStarter {
@@ -35,7 +34,12 @@ public class JavaSchoolStarter {
             return switch (command) {
                 case "INSERT VALUES" -> insertMap(getData(checkValidity(request)[0]),
                         setKeysInMap(fieldsAndTypes.keySet(), new LinkedHashMap<>()));
-                case "UPDATE VALUES", "SELECT", "DELETE" -> selectByCondition(getDataAndCondition(request));
+                case "UPDATE VALUES", "SELECT" -> selectByCondition(getDataAndCondition(request));
+                case "DELETE" -> {
+                    List<Map<String, Object>> result = selectByCondition(getDataAndCondition(request));
+                    collection.removeAll(result);
+                    yield result;
+                }
                 default -> throw new IllegalStateException("Unexpected value: " + command);
             };
         } else {
@@ -51,14 +55,17 @@ public class JavaSchoolStarter {
 
     public List<Map<String, Object>> selectByCondition(Map<String, Map<String, String>> stringMap) throws Exception {
         List<Map<String, Object>> resultList = new ArrayList<>(collection);
+        if (stringMap.containsKey(null) && stringMap.containsValue(null)) throw new Exception("Key and value - null!");
         if (stringMap.containsKey(null)) {
-            stringMap.values().forEach(data -> resultList.forEach(map -> fillMap(data, map)));
+            for (Map<String, String> data : stringMap.values()) resultList.forEach(map -> fillMap(data, map));
             return resultList;
         }
         if (stringMap.containsValue(null)) {
             return selectMap(String.join("", stringMap.keySet()));
         }
-        return null;
+        resultList = selectMap(String.join("", stringMap.keySet()));
+        for (Map<String, String> data : stringMap.values()) resultList.forEach(map -> fillMap(data, map));
+        return resultList;
     }
 
     public List<Map<String, Object>> selectMap(String condition) throws Exception {
@@ -67,18 +74,16 @@ public class JavaSchoolStarter {
 
     public static List<Map<String, Object>> selectMap(Map<String, Class> fieldsAndTypes, List<Map<String, Object>> collection, String condition) throws Exception {
         List<Map<String, Object>> result = new ArrayList<>(collection);
+        if (condition.isBlank()) {
+            return result;
+        }
         String[] parts = splitCondition(condition);
-//        if (parts[0].strip().matches(exprValidity)) {
-//            result = result.stream().filter(e -> filterMap(fieldsAndTypes, e, parts[0])).collect(Collectors.toList());
-//            if (parts.length == 1) return result;
-//        }
         if (parts.length == 1)
             return result.stream().filter(e -> filterMap(fieldsAndTypes, e, parts[0])).collect(Collectors.toList());
 
         for (String part : parts)
             condition = condition.replace(part, "");
 
-        Condition enumOrAnd = findOperation(condition);
         List<Map<String, Object>> intermediate = new ArrayList<>(collection);
         Matcher matcher = Pattern.compile("(?<=\\()\\s*" + expression + "(?=\\s*\\))").matcher(parts[0]);
         while (matcher.find()) {
@@ -88,9 +93,6 @@ public class JavaSchoolStarter {
             parts[0] = parts[0].replace(matcher.group(), "");
             matcher.reset(parts[0]);
         }
-//        if (parts[1].strip().matches(exprValidity)) {
-//            intermediate = intermediate.stream().filter(e -> filterMap(fieldsAndTypes, e, parts[1])).collect(Collectors.toList());
-//        }
         while (matcher.reset(parts[1]).find()) {
             intermediate = orAndMatcher(fieldsAndTypes, collection, intermediate, matcher.group());
             System.out.println(parts[1] + " - " + matcher.group());
@@ -98,7 +100,6 @@ public class JavaSchoolStarter {
             parts[1] = parts[1].replace(matcher.group(), "");
         }
         result = orAndMatcher(fieldsAndTypes, intermediate, result, parts[0] + condition + parts[1]);
-        // enumOrAnd.compute(result, intermediate);
         return result;
     }
 
@@ -109,12 +110,15 @@ public class JavaSchoolStarter {
         for (String data : conditions)
             shortExpr = shortExpr.replace(data, "");
         Condition enumOrAnd = findOperation(shortExpr);
-        if (!conditions[0].matches("\\(\\s*\\)"))
-            resultMatching = resultMatching.stream().filter(e ->
-                    filterMap(fieldsAndTypes, e, conditions[0])).collect(Collectors.toList());
-        if (!conditions[1].matches("\\(\\s*\\)"))
-            intermediate = intermediate.stream().filter(
-                    e -> filterMap(fieldsAndTypes, e, conditions[1])).collect(Collectors.toList());
+        if (Arrays.stream(conditions).allMatch(e -> e.matches("\\(\\s*\\)"))) {
+            enumOrAnd.compute(resultMatching, intermediate);
+            return resultMatching;
+        }
+        if (Arrays.stream(conditions).noneMatch(e -> e.matches("\\(\\s*\\)"))) {
+            resultMatching = resultMatching.stream().filter(e -> filterMap(fieldsAndTypes, e, conditions[0])).collect(Collectors.toList());
+        }
+        intermediate = intermediate.stream().filter(e -> filterMap(fieldsAndTypes, e,
+                !conditions[1].matches("\\(\\s*\\)") ? conditions[1] : conditions[0])).collect(Collectors.toList());
         enumOrAnd.compute(resultMatching, intermediate);
         return resultMatching;
     }
@@ -129,26 +133,25 @@ public class JavaSchoolStarter {
     public static void main(String[] args) {
         JavaSchoolStarter cl = new JavaSchoolStarter();
         try {
-            List<Map<String, Object>> col = new ArrayList<>(cl.execute("INSErT  VALUES 'LASTName' ='lull', 'iD'=null, 'aGe' = null, 'coST' = 4.56 "));
-            col.addAll(cl.execute("INSErT  VALUES 'LasTName' = 'Lister', 'iD'=4, 'aGe' = 25, 'cost' = 4.55 "));
-            //  printTable(col);
-            // printTable(cl.execute("UPDate  VALUES 'LASTName' ='sos', 'aGe' = null "));
-            printTable(
-                    cl.execute("select where 'lastname' like 'L%'"));
-            //   cl.execute("select where ((‘id’=''or('age'=null and'cost' < 4)) and ''='')and((‘active’=false or'lastName'like'test%')and'cost'>6 )");
-            //  cl.filterMap("((‘active’=false or'lastName'like'test%')and'cost'>6 )and''=''");
-            //      cl.filterMap(Map.of("iD", 4), "'iD' <=4");
-            //     printTable(cl.selectMap("'age' != 4.56"),cl.fieldsAndTypes);
-//            List<Map<String, Object>> col2 = new ArrayList<>(col);
-//
-//            Condition.getOperationByString("and").compute(col, col2);
+            List<Map<String, Object>> col = new ArrayList<>(cl.execute("INSErT  VALUES 'LASTName' ='lull', 'aGe' = null, 'coST' = 4.56 "));
+            col.addAll(cl.execute("INSErT  VAluES 'LasTName' = 'Lister', 'iD'=1, 'aGe' = 25, 'cost' = 4.20 "));
+            col.addAll(cl.execute("INSErT  vaLUES 'LasTName' = 'Connor', 'iD'=2, 'aGe' = 31, 'cost' = 4.75 "));
+            cl.printTable();
+            out.println("\nResult update:");
+            printTable(cl.execute("UPDate  VALUes 'active' = false"));
+            out.println("\nResult update:");
+            printTable(cl.execute("UPDate  VALUES 'LASTName' ='sos', 'id' = null where ('lastname' ilike 'l%' or 'id'!=2) and 'cost' > 4.2"));
+            out.println("\nResult select(all):");
+            printTable(cl.execute("SELECT"));
+            out.println("\nResult delete where id=2:");
+            printTable(cl.execute("DELETE where 'Id' = 2"));
 //            printTable(col);
         } catch (Exception e) {
             e.printStackTrace();
         }
-        //    cl.printTable();
+        out.println("\n\nAfter iuds commands:");
+        cl.printTable();
     }
-
 
     public static String[] splitCondition(String condition) {
         return condition.strip().startsWith("(") ?

@@ -55,14 +55,13 @@ public class TestIUDS {
         }});
         System.out.println("Bванов".matches("(?i)(b.*)"));
         List<Map<String, Object>> sel1 = selectMap(fieldsAndTypes,col,
-                "('AGE' >= 30 and 'coST'<4.5) or (('age' >= 26 or 'lasTNAME' ilike 'и%') and 'ACTIVE' = false)");
+                "('AGE' >= 30 and 'coST'<4.5) or ('ACTIVE' = false and ('age' >= 26 or 'lasTNAME' ilike 'и%'))");
                 // "'age' >= 26  or ('AGE' >= 30 and 'coST'<4.5)");
                 //"('AGE' >= 30 and 'coST'<4.5)  or 'age' >= 26");
+               // "'AGE' >= 25 and 'ID'<3");
 
-     //   assert Objects.requireNonNull(sel1).contains(col.get(3));
-      //  List<Map<String, Object>> sel2 = selectMap(fieldsAndTypes,col2,"'cost' != 0");
+        assert Objects.requireNonNull(sel1).contains(col.get(3));
 
-      //  Condition.getOperationByString("  and ").compute(sel1, sel2);
 
         printTable(sel1);
     }
