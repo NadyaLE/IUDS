@@ -6,11 +6,11 @@
 
     <groupId>com.digdes.school</groupId>
     <artifactId>IUDS</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
     <dependencies>
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <version>RELEASE</version>
             <scope>test</scope>
         </dependency>

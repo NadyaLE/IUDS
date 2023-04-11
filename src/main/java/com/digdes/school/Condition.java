@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2023. NadyaLE
+ */
 package com.digdes.school;
 
 import java.util.Arrays;
@@ -20,7 +23,6 @@ public enum Condition {
         return ((Collection) a).addAll((Collection<?>) b);
     });
 
-
     private final String conditionStr;
     private final BiFunction<Object, Object, Object> operation;
 
@@ -34,8 +36,7 @@ public enum Condition {
     }
 
     public Boolean compute(Object a, Object b) {
-        return a == null ? this.compareTo(Condition.NOT_EQUAL) == 0 :
-                (Boolean) operation.apply(a, b);
+        return a == null ? this.compareTo(Condition.NOT_EQUAL) == 0 : (Boolean) operation.apply(a, b);
     }
 
     public static Condition getOperationByString(String str) throws Exception {
